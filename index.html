@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MVP Tracker - Ragnarok Online</title>
+  <title>MVP Tracker - Personal Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; }
@@ -23,52 +23,147 @@
     }
     .btn-enter:hover { background-color: #0369a1; }
 
-    /* Dashboard */
-    #dashboard { display: none; width: 100%; height: 100vh; flex-direction: column; }
-    header {
-      background: #1e293b; padding: 12px 20px; display: flex;
-      justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;
-    }
-    header h2 { color: #38bdf8; font-size: 1.2rem; }
-    .btn-toggle {
-      background: #0284c7; color: white; border: none; padding: 8px 16px;
-      border-radius: 4px; font-weight: bold; cursor: pointer;
-    }
+    /* Dashboard Header */
+    #dashboard { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
+    header h2 { color: #38bdf8; font-size: 1.5rem; }
+    
+    .btn-action { background: #334155; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-action:hover { background: #475569; }
 
-    /* Embedded Hercules Frame */
-    .iframe-container { flex: 1; width: 100%; height: calc(100vh - 60px); }
-    iframe { width: 100%; height: 100%; border: none; }
+    /* Modal for Managing Bosses */
+    #filter-modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content { background: #1e293b; padding: 20px; border-radius: 8px; max-width: 450px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-content h3 { margin-bottom: 15px; color: #38bdf8; }
+    .boss-toggle-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; align-items: center; }
+
+    /* Boss Cards Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; }
+    .boss-title { font-weight: bold; color: #f1f5f9; font-size: 1.1rem; }
+    .map-code { font-size: 0.85rem; color: #38bdf8; background: #0f172a; padding: 2px 8px; border-radius: 4px; }
+    
+    .map-preview { width: 100%; height: 140px; background: #0f172a; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #334155; }
+    .map-preview img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .card-actions { display: flex; gap: 8px; }
+    .btn-card { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; font-size: 0.9rem; }
+    .btn-hercules { background: #0284c7; color: white; }
+    .btn-hercules:hover { background: #0369a1; }
   </style>
 </head>
 <body>
 
   <!-- Landing Page -->
   <div id="landing-page">
-    <h1>MVP TRACKER</h1>
+    <h1>MVP TRACKER HUB</h1>
     <p>RAGNAROK ONLINE</p>
     <button class="btn-enter" onclick="enterTracker()">ENTER TRACKER</button>
   </div>
 
-  <!-- Dashboard with Embedded Hercules Tracker -->
+  <!-- Main Dashboard -->
   <div id="dashboard">
     <header>
-      <h2>LIVE MVP TRACKER</h2>
-      <button class="btn-toggle" onclick="reloadTracker()">Refresh Live Data</button>
+      <h2>MY HUNT ROSTER</h2>
+      <button class="btn-action" onclick="openFilterModal()">⚙️ Manage My Bosses</button>
     </header>
-    <div class="iframe-container">
-      <iframe id="hercules-frame" src="https://yggdrasil-septiembre.onhercules.app/tracker"></iframe>
+
+    <div class="grid" id="boss-grid"></div>
+  </div>
+
+  <!-- Filter Modal -->
+  <div id="filter-modal">
+    <div class="modal-content">
+      <h3>Select Bosses to Show</h3>
+      <div id="boss-checkbox-list"></div>
+      <br>
+      <button class="btn-enter" style="width: 100%;" onclick="closeFilterModal()">Save Roster</button>
     </div>
   </div>
 
   <script>
+    const MASTER_BOSS_LIST = [
+      { name: "Turtle General", map: "tur_dun04" },
+      { name: "Kiel-D-01", map: "kh_dun02" },
+      { name: "Ungoliant", map: "mjo_dun03" },
+      { name: "Eddga", map: "pay_fild11" },
+      { name: "Tao Gunka", map: "cmd_fild02" },
+      { name: "Amon Ra", map: "moc_pryd06" },
+      { name: "Valkyrie Randgris", map: "odin_tem03" },
+      { name: "Atroce", map: "ra_fild03" },
+      { name: "Baphomet", map: "prt_maze03" },
+      { name: "Doppelganger", map: "gef_dun02" }
+    ];
+
+    let myActiveBosses = JSON.parse(localStorage.getItem('my_active_bosses')) || MASTER_BOSS_LIST.map(b => b.name);
+
     function enterTracker() {
       document.getElementById('landing-page').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'block';
+      renderGrid();
     }
 
-    function reloadTracker() {
-      const frame = document.getElementById('hercules-frame');
-      frame.src = frame.src;
+    function renderGrid() {
+      const grid = document.getElementById('boss-grid');
+      grid.innerHTML = '';
+
+      const activeList = MASTER_BOSS_LIST.filter(b => myActiveBosses.includes(b.name));
+
+      if (activeList.length === 0) {
+        grid.innerHTML = '<p style="color:#94a3b8;">No bosses selected. Click "Manage My Bosses" to add some!</p>';
+        return;
+      }
+
+      activeList.forEach(boss => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="boss-title">${boss.name}</span>
+            <span class="map-code">${boss.map}</span>
+          </div>
+          <div class="map-preview">
+            <img src="https://yggdrasil-septiembre.onhercules.app/maps/${boss.map}.png" alt="${boss.map}" onerror="this.src='https://via.placeholder.com/250x140?text=${boss.map}'">
+          </div>
+          <div class="card-actions">
+            <a href="https://yggdrasil-septiembre.onhercules.app/tracker" target="_blank" class="btn-card btn-hercules">Check Timer on Hercules ↗</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openFilterModal() {
+      const listEl = document.getElementById('boss-checkbox-list');
+      listEl.innerHTML = '';
+      MASTER_BOSS_LIST.forEach(boss => {
+        const isChecked = myActiveBosses.includes(boss.name) ? 'checked' : '';
+        listEl.innerHTML += `
+          <div class="boss-toggle-item">
+            <span>${boss.name} (${boss.map})</span>
+            <input type="checkbox" value="${boss.name}" ${isChecked} onchange="toggleBossSelection('${boss.name}')">
+          </div>
+        `;
+      });
+      document.getElementById('filter-modal').style.display = 'flex';
+    }
+
+    function toggleBossSelection(bossName) {
+      if (myActiveBosses.includes(bossName)) {
+        myActiveBosses = myActiveBosses.filter(b => b !== bossName);
+      } else {
+        myActiveBosses.push(bossName);
+      }
+      localStorage.setItem('my_active_bosses', JSON.stringify(myActiveBosses));
+    }
+
+    function closeFilterModal() {
+      document.getElementById('filter-modal').style.display = 'none';
+      renderGrid();
     }
   </script>
 </body>
