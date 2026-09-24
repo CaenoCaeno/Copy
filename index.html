@@ -1,6 +1,3 @@
-HTML
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,40 +23,21 @@ HTML
     }
     .btn-enter:hover { background-color: #0369a1; }
 
-    /* Main Dashboard */
-    #dashboard { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
-    header h2 { color: #38bdf8; font-size: 1.5rem; }
-    
-    .controls { display: flex; gap: 10px; }
-    .btn-action { background: #334155; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-    .btn-action:hover { background: #475569; }
-
-    /* Boss Filter Manager Modal */
-    #filter-modal {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
+    /* Dashboard */
+    #dashboard { display: none; width: 100%; height: 100vh; flex-direction: column; }
+    header {
+      background: #1e293b; padding: 12px 20px; display: flex;
+      justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;
     }
-    .modal-content { background: #1e293b; padding: 20px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
-    .modal-content h3 { margin-bottom: 15px; color: #38bdf8; }
-    .boss-toggle-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; }
+    header h2 { color: #38bdf8; font-size: 1.2rem; }
+    .btn-toggle {
+      background: #0284c7; color: white; border: none; padding: 8px 16px;
+      border-radius: 4px; font-weight: bold; cursor: pointer;
+    }
 
-    /* MVP Cards Grid */
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-    .card-header { display: flex; align-items: center; gap: 10px; }
-    .card-header img { width: 40px; height: 40px; object-fit: contain; }
-    .boss-name { font-weight: bold; color: #f1f5f9; }
-    .map-name { font-size: 0.8rem; color: #94a3b8; }
-    .timer-box { font-size: 1.2rem; font-weight: bold; color: #38bdf8; text-align: center; background: #0f172a; padding: 8px; border-radius: 4px; }
-    
-    .map-container { position: relative; width: 100%; height: 150px; background: #000; border-radius: 4px; overflow: hidden; display: none; }
-    .map-container img { width: 100%; height: 100%; object-fit: cover; }
-    
-    .card-buttons { display: flex; gap: 8px; margin-top: 5px; }
-    .btn-card { flex: 1; padding: 6px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-    .btn-kill { background: #0284c7; color: white; }
-    .btn-toggle-map { background: #475569; color: white; }
+    /* Embedded Hercules Frame */
+    .iframe-container { flex: 1; width: 100%; height: calc(100vh - 60px); }
+    iframe { width: 100%; height: 100%; border: none; }
   </style>
 </head>
 <body>
@@ -71,121 +49,26 @@ HTML
     <button class="btn-enter" onclick="enterTracker()">ENTER TRACKER</button>
   </div>
 
-  <!-- Dashboard -->
+  <!-- Dashboard with Embedded Hercules Tracker -->
   <div id="dashboard">
     <header>
-      <h2>MY HUNT LIST</h2>
-      <div class="controls">
-        <button class="btn-action" onclick="openFilterModal()">Manage My Bosses</button>
-        <button class="btn-action" onclick="fetchHerculesData()">Sync Live Timers</button>
-      </div>
+      <h2>LIVE MVP TRACKER</h2>
+      <button class="btn-toggle" onclick="reloadTracker()">Refresh Live Data</button>
     </header>
-
-    <div class="grid" id="boss-grid"></div>
-  </div>
-
-  <!-- Boss Filter Modal -->
-  <div id="filter-modal">
-    <div class="modal-content">
-      <h3>Select Bosses You Hunt</h3>
-      <div id="boss-checkbox-list"></div>
-      <br>
-      <button class="btn-enter" style="width: 100%;" onclick="closeFilterModal()">Save Preferences</button>
+    <div class="iframe-container">
+      <iframe id="hercules-frame" src="https://yggdrasil-septiembre.onhercules.app/tracker"></iframe>
     </div>
   </div>
 
   <script>
-    const ALL_BOSSES = [
-      { name: "Turtle General", map: "tur_dun04" },
-      { name: "Kiel-D-01", map: "kh_dun02" },
-      { name: "Ungoliant", map: "mjo_dun03" },
-      { name: "Eddga", map: "pay_fild11" },
-      { name: "Tao Gunka", map: "cmd_fild02" },
-      { name: "Amon Ra", map: "moc_pryd06" },
-      { name: "Valkyrie Randgris", map: "odin_tem03" }
-    ];
-
-    let myHuntList = JSON.parse(localStorage.getItem('my_hunt_list')) || ["Turtle General", "Kiel-D-01", "Ungoliant"];
-
     function enterTracker() {
       document.getElementById('landing-page').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      renderCards();
-      fetchHerculesData();
+      document.getElementById('dashboard').style.display = 'flex';
     }
 
-    function renderCards() {
-      const grid = document.getElementById('boss-grid');
-      grid.innerHTML = '';
-
-      myHuntList.forEach(bossName => {
-        const boss = ALL_BOSSES.find(b => b.name === bossName) || { name: bossName, map: "unknown" };
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="card-header">
-            <div>
-              <div class="boss-name">${boss.name}</div>
-              <div class="map-name">${boss.map}</div>
-            </div>
-          </div>
-          <div class="timer-box" id="timer-${boss.name.replace(/\s+/g, '')}">Syncing...</div>
-          <div class="map-container" id="map-${boss.name.replace(/\s+/g, '')}">
-            <img src="https://yggdrasil-septiembre.onhercules.app/maps/${boss.map}.png" alt="${boss.map}" onerror="this.src='https://via.placeholder.com/150?text=No+Map+Image'">
-          </div>
-          <div class="card-buttons">
-            <button class="btn-card btn-toggle-map" onclick="toggleMap('${boss.name.replace(/\s+/g, '')}')">Map</button>
-            <button class="btn-card btn-kill" onclick="registerLocalKill('${boss.name}')">Kill</button>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    function toggleMap(id) {
-      const mapEl = document.getElementById(`map-${id}`);
-      mapEl.style.display = mapEl.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function registerLocalKill(bossName) {
-      const id = bossName.replace(/\s+/g, '');
-      const timerEl = document.getElementById(`timer-${id}`);
-      timerEl.innerText = "Killed (Personal)";
-      alert(`Updated ${bossName} locally! Your friends' main site was NOT changed.`);
-    }
-
-    async function fetchHerculesData() {
-      // Safely fetches live timers without POST/PUT requests
-      console.log("Fetching live timers safely from Hercules...");
-    }
-
-    function openFilterModal() {
-      const listEl = document.getElementById('boss-checkbox-list');
-      listEl.innerHTML = '';
-      ALL_BOSSES.forEach(boss => {
-        const checked = myHuntList.includes(boss.name) ? 'checked' : '';
-        listEl.innerHTML += `
-          <div class="boss-toggle-item">
-            <span>${boss.name}</span>
-            <input type="checkbox" value="${boss.name}" ${checked} onchange="toggleBoss('${boss.name}')">
-          </div>
-        `;
-      });
-      document.getElementById('filter-modal').style.display = 'flex';
-    }
-
-    function toggleBoss(name) {
-      if (myHuntList.includes(name)) {
-        myHuntList = myHuntList.filter(b => b !== name);
-      } else {
-        myHuntList.push(name);
-      }
-      localStorage.setItem('my_hunt_list', JSON.stringify(myHuntList));
-    }
-
-    function closeFilterModal() {
-      document.getElementById('filter-modal').style.display = 'none';
-      renderCards();
+    function reloadTracker() {
+      const frame = document.getElementById('hercules-frame');
+      frame.src = frame.src;
     }
   </script>
 </body>
